@@ -9,6 +9,13 @@
 
 #define DEVICE_NAME "my_device"
 
+// Операции для устройства
+static struct file_operations my_fops = {
+    .owner = THIS_MODULE,
+    .read = my_read,
+    .write = my_write,
+};
+
 struct crypto_skcipher *skcipher = NULL;
 struct skcipher_request *req = NULL;
 struct scatterlist sg;
@@ -150,4 +157,4 @@ module_exit(my_module_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("My Crypto Module");
-MODULE_AUTHOR("Your Name");
+MODULE_AUTHOR("Elizaveta");
