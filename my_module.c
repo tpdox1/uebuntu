@@ -9,6 +9,8 @@
 
 #define DEVICE_NAME "my_device"
 
+static int major_num; // Номер главного устройства
+
 // Объявления функций для обработки
 static ssize_t my_read(struct file *file, char __user *buf, size_t len, loff_t *offset);
 static ssize_t my_write(struct file *file, const char __user *buf, size_t len, loff_t *offset);
@@ -111,7 +113,7 @@ static ssize_t my_write(struct file *file, const char __user *buf, size_t len, l
     }
 
     // Копируем зашифрованные данные обратно в пользовательский буфер
-    if (copy_to_user((void *)buf, kbuf, len)) { // Убрали const
+    if (copy_to_user((void *)buf, kbuf, len)) {
         kfree(kbuf);
         return -EFAULT;
     }
@@ -152,23 +154,27 @@ static ssize_t my_read(struct file *file, char __user *buf, size_t len, loff_t *
 
 // Основные функции модуля
 static int __init my_module_init(void) {
-    // Инициализация шифрования и регистрация устройства
+    // Инициализация шифрования
     int ret = init_cipher();
     if (ret) {
         return ret;
     }
 
-    if (register_chrdev(0, DEVICE_NAME, &my_fops) < 0) {
+    // Регистрация устройства и сохранение номера главного устройства
+    major_num = register_chrdev(0, DEVICE_NAME, &my_fops);
+    if (major_num < 0) {
         cleanup_cipher();
-        return -EBUSY;
+        return major_num; // Возвращаем ошибку
     }
 
+    printk(KERN_INFO "Registered my_device with major number %d\n", major_num);
     return 0;
 }
 
 static void __exit my_module_exit(void) {
-    unregister_chrdev(0, DEVICE_NAME);
+    unregister_chrdev(major_num, DEVICE_NAME); // Используйте сохранённый номер
     cleanup_cipher();
+    printk(KERN_INFO "Unregistered my_device\n");
 }
 
 module_init(my_module_init);
