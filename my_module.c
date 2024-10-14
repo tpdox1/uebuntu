@@ -90,7 +90,11 @@ static void cleanup_cipher(void) {
 
 // Функция для записи
 static ssize_t my_write(struct file *file, const char __user *buf, size_t len, loff_t *offset) {
-    char *kbuf = kmalloc(len, GFP_KERNEL);
+    char *kbuf;
+    ssize_t ret;
+
+    // Выделяем память для буфера
+    kbuf = kmalloc(len, GFP_KERNEL);
     if (!kbuf)
         return -ENOMEM;
 
@@ -100,36 +104,49 @@ static ssize_t my_write(struct file *file, const char __user *buf, size_t len, l
     }
 
     // Шифруем данные перед записью
-    encrypt_data(kbuf, len);
+    ret = encrypt_data(kbuf, len);
+    if (ret < 0) {
+        kfree(kbuf);
+        return ret;
+    }
 
-    // Выполняем стандартную запись
-    ssize_t ret = vfs_write(file, kbuf, len, offset);
+    // Здесь мы просто отдаем те же зашифрованные данные
+    if (copy_to_user(buf, kbuf, len)) {
+        kfree(kbuf);
+        return -EFAULT;
+    }
 
     kfree(kbuf);
-    return ret;
+    return len; // Возвращаем количество записанных байтов
 }
 
 // Функция для чтения
 static ssize_t my_read(struct file *file, char __user *buf, size_t len, loff_t *offset) {
-    char *kbuf = kmalloc(len, GFP_KERNEL);
+    char *kbuf;
+    ssize_t ret;
+
+    // Выделяем память для буфера
+    kbuf = kmalloc(len, GFP_KERNEL);
     if (!kbuf)
         return -ENOMEM;
 
-    // Выполняем стандартное чтение
-    ssize_t ret = vfs_read(file, kbuf, len, offset);
+    // Здесь мы просто вернем нули или какие-то данные
+    memset(kbuf, 0, len); // Пример заполнения нулями
 
-    if (ret > 0) {
-        // Расшифровываем данные после чтения
-        decrypt_data(kbuf, ret);
+    // Расшифровываем данные после чтения
+    ret = decrypt_data(kbuf, len);
+    if (ret < 0) {
+        kfree(kbuf);
+        return ret;
+    }
 
-        if (copy_to_user(buf, kbuf, ret)) {
-            kfree(kbuf);
-            return -EFAULT;
-        }
+    if (copy_to_user(buf, kbuf, len)) {
+        kfree(kbuf);
+        return -EFAULT;
     }
 
     kfree(kbuf);
-    return ret;
+    return len; // Возвращаем количество прочитанных байтов
 }
 
 // Основные функции модуля
