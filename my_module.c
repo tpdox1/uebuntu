@@ -1,14 +1,8 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/fs.h>
-#include <linux/slab.h>
-#include <linux/crypto.h>
 #include <linux/scatterlist.h>
-#include <linux/uaccess.h>
-#include <linux/string.h>
-
-#define DEVICE_NAME "my_crypto_device"
+#include <linux/crypto.h>
+#include <linux/skcipher.h>
 
 static struct crypto_skcipher *skcipher = NULL;
 static struct skcipher_request *req = NULL;
@@ -29,41 +23,11 @@ static int init_cipher(void) {
         return -ENOMEM;
     }
 
-    if (crypto_skcipher_setkey(skcipher, key, 32)) {
+    if (crypto_skcipher_setkey(skcipher, key, sizeof(key))) {
         printk(KERN_ERR "Failed to set key\n");
         skcipher_request_free(req);
         crypto_free_skcipher(skcipher);
         return -EAGAIN;
-    }
-
-    return 0;
-}
-
-static int encrypt_data(char *data, int len) {
-    int ret;
-
-    sg_init_one(&sg, data, len);
-    skcipher_request_set_crypt(req, &sg, &sg, len, NULL);
-
-    ret = crypto_skcipher_encrypt(req);
-    if (ret) {
-        printk(KERN_ERR "Encryption failed\n");
-        return ret;
-    }
-
-    return 0;
-}
-
-static int decrypt_data(char *data, int len) {
-    int ret;
-
-    sg_init_one(&sg, data, len);
-    skcipher_request_set_crypt(req, &sg, &sg, len, NULL);
-
-    ret = crypto_skcipher_decrypt(req);
-    if (ret) {
-        printk(KERN_ERR "Decryption failed\n");
-        return ret;
     }
 
     return 0;
@@ -150,5 +114,5 @@ module_init(my_module_init);
 module_exit(my_module_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Your Name");
+MODULE_AUTHOR("Elizaveta");
 MODULE_DESCRIPTION("A simple example module with encryption.");
