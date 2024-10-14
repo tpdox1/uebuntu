@@ -110,8 +110,8 @@ static ssize_t my_write(struct file *file, const char __user *buf, size_t len, l
         return ret;
     }
 
-    // Здесь мы просто отдаем те же зашифрованные данные
-    if (copy_to_user(buf, kbuf, len)) {
+    // Копируем зашифрованные данные обратно в пользовательский буфер
+    if (copy_to_user((void *)buf, kbuf, len)) { // Убрали const
         kfree(kbuf);
         return -EFAULT;
     }
@@ -130,8 +130,8 @@ static ssize_t my_read(struct file *file, char __user *buf, size_t len, loff_t *
     if (!kbuf)
         return -ENOMEM;
 
-    // Здесь мы просто вернем нули или какие-то данные
-    memset(kbuf, 0, len); // Пример заполнения нулями
+    // Заполняем kbuf данными (можно заменить на вашу логику)
+    memset(kbuf, 0, len); // Заполняем нулями
 
     // Расшифровываем данные после чтения
     ret = decrypt_data(kbuf, len);
@@ -140,6 +140,7 @@ static ssize_t my_read(struct file *file, char __user *buf, size_t len, loff_t *
         return ret;
     }
 
+    // Копируем расшифрованные данные в пользовательский буфер
     if (copy_to_user(buf, kbuf, len)) {
         kfree(kbuf);
         return -EFAULT;
