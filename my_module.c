@@ -1,14 +1,24 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/fs.h>
+#include <linux/slab.h>
 #include <linux/scatterlist.h>
-#include <linux/crypto.h>
-#include <linux/skcipher.h>
+#include <crypto/skcipher.h>
+#include <linux/uaccess.h>
 
-static struct crypto_skcipher *skcipher = NULL;
-static struct skcipher_request *req = NULL;
-static struct scatterlist sg;
+#define DEVICE_NAME "my_device"
+
+struct crypto_skcipher *skcipher = NULL;
+struct skcipher_request *req = NULL;
+struct scatterlist sg;
 char key[32] = "thisiskeyforsymmetricencryption";
 
+// Объявления функций
+static int encrypt_data(char *data, int len);
+static int decrypt_data(char *data, int len);
+
+// Инициализация шифрования
 static int init_cipher(void) {
     skcipher = crypto_alloc_skcipher("cbc(aes)", 0, 0);
     if (IS_ERR(skcipher)) {
@@ -23,7 +33,7 @@ static int init_cipher(void) {
         return -ENOMEM;
     }
 
-    if (crypto_skcipher_setkey(skcipher, key, sizeof(key))) {
+    if (crypto_skcipher_setkey(skcipher, key, 32)) {
         printk(KERN_ERR "Failed to set key\n");
         skcipher_request_free(req);
         crypto_free_skcipher(skcipher);
@@ -33,11 +43,45 @@ static int init_cipher(void) {
     return 0;
 }
 
+// Функция для шифрования данных
+static int encrypt_data(char *data, int len) {
+    int ret;
+    
+    sg_init_one(&sg, data, len);
+    skcipher_request_set_crypt(req, &sg, &sg, len, NULL);
+    
+    ret = crypto_skcipher_encrypt(req);
+    if (ret) {
+        printk(KERN_ERR "Encryption failed\n");
+        return ret;
+    }
+
+    return 0;
+}
+
+// Функция для расшифровки данных
+static int decrypt_data(char *data, int len) {
+    int ret;
+    
+    sg_init_one(&sg, data, len);
+    skcipher_request_set_crypt(req, &sg, &sg, len, NULL);
+    
+    ret = crypto_skcipher_decrypt(req);
+    if (ret) {
+        printk(KERN_ERR "Decryption failed\n");
+        return ret;
+    }
+
+    return 0;
+}
+
+// Завершение работы с шифрованием
 static void cleanup_cipher(void) {
     skcipher_request_free(req);
     crypto_free_skcipher(skcipher);
 }
 
+// Функции для обработки записи и чтения
 static ssize_t my_write(struct file *file, const char __user *buf, size_t len, loff_t *offset) {
     char *kbuf = kmalloc(len, GFP_KERNEL);
     if (!kbuf)
@@ -80,39 +124,30 @@ static ssize_t my_read(struct file *file, char __user *buf, size_t len, loff_t *
     return ret;
 }
 
-static struct file_operations my_fops = {
-    .write = my_write,
-    .read  = my_read,
-};
-
+// Основные функции модуля
 static int __init my_module_init(void) {
-    int ret;
-
-    ret = init_cipher();
+    // Инициализация шифрования и регистрация устройства
+    int ret = init_cipher();
     if (ret) {
         return ret;
     }
 
-    // Регистрация устройства
     if (register_chrdev(0, DEVICE_NAME, &my_fops) < 0) {
-        printk(KERN_ERR "Failed to register char device\n");
         cleanup_cipher();
-        return -1;
+        return -EBUSY;
     }
 
-    printk(KERN_INFO "My module is loaded.\n");
     return 0;
 }
 
 static void __exit my_module_exit(void) {
     unregister_chrdev(0, DEVICE_NAME);
     cleanup_cipher();
-    printk(KERN_INFO "My module is unloaded.\n");
 }
 
 module_init(my_module_init);
 module_exit(my_module_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Elizaveta");
-MODULE_DESCRIPTION("A simple example module with encryption.");
+MODULE_DESCRIPTION("My Crypto Module");
+MODULE_AUTHOR("Your Name");
