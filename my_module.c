@@ -9,6 +9,10 @@
 
 #define DEVICE_NAME "my_device"
 
+// Объявления функций для обработки
+static ssize_t my_read(struct file *file, char __user *buf, size_t len, loff_t *offset);
+static ssize_t my_write(struct file *file, const char __user *buf, size_t len, loff_t *offset);
+
 // Операции для устройства
 static struct file_operations my_fops = {
     .owner = THIS_MODULE,
@@ -20,10 +24,6 @@ struct crypto_skcipher *skcipher = NULL;
 struct skcipher_request *req = NULL;
 struct scatterlist sg;
 char key[32] = "thisiskeyforsymmetricencryption";
-
-// Объявления функций
-static int encrypt_data(char *data, int len);
-static int decrypt_data(char *data, int len);
 
 // Инициализация шифрования
 static int init_cipher(void) {
@@ -53,7 +53,7 @@ static int init_cipher(void) {
 // Функция для шифрования данных
 static int encrypt_data(char *data, int len) {
     int ret;
-    
+
     sg_init_one(&sg, data, len);
     skcipher_request_set_crypt(req, &sg, &sg, len, NULL);
     
@@ -69,7 +69,7 @@ static int encrypt_data(char *data, int len) {
 // Функция для расшифровки данных
 static int decrypt_data(char *data, int len) {
     int ret;
-    
+
     sg_init_one(&sg, data, len);
     skcipher_request_set_crypt(req, &sg, &sg, len, NULL);
     
@@ -88,7 +88,7 @@ static void cleanup_cipher(void) {
     crypto_free_skcipher(skcipher);
 }
 
-// Функции для обработки записи и чтения
+// Функция для записи
 static ssize_t my_write(struct file *file, const char __user *buf, size_t len, loff_t *offset) {
     char *kbuf = kmalloc(len, GFP_KERNEL);
     if (!kbuf)
@@ -109,6 +109,7 @@ static ssize_t my_write(struct file *file, const char __user *buf, size_t len, l
     return ret;
 }
 
+// Функция для чтения
 static ssize_t my_read(struct file *file, char __user *buf, size_t len, loff_t *offset) {
     char *kbuf = kmalloc(len, GFP_KERNEL);
     if (!kbuf)
