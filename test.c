@@ -10,7 +10,6 @@ int main() {
         return 1;
     }
 
-    // Запись данных
     const char *msg = "Hello, world!";
     if (write(fd, msg, sizeof(msg)) < 0) {
         perror("Failed to write to device");
